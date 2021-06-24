@@ -2,11 +2,14 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const app = express();
 const cookieParser = require('cookie-parser');
+const fs = require('fs');
+const crypto = require('crypto');
+const bcrypt = require('bcrypt');
+const saltRounds = 10;
 app.use(cookieParser());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 var path = require('path');
-const { getMaxListeners } = require('process');
 var home = path.join(__dirname, '/pages/home/');
 var signin = path.join(__dirname, '/pages/signin/');
 var store = path.join(__dirname, '/pages/store/');
@@ -16,6 +19,7 @@ var store = path.join(__dirname, '/pages/store/');
 /////////////////////////////////////
 
 app.get('/', function (req, res) {
+  res.cookie('newIdToken', { expires: Date.now() });
   res.sendFile(path.join(home, 'index.html'));
 });
 
@@ -32,6 +36,7 @@ app.get('/pages/home/script.js', function (req, res) {
 /////////////////////////////////////
 
 app.get('/signin', function (req, res) {
+  res.cookie('newIdToken', { expires: Date.now() });
   res.sendFile(path.join(signin, 'index.html'));
 });
 
@@ -60,85 +65,159 @@ app.get('/pages/store/script.js', function (req, res) {
 });
 
 ///////////////////////////////////////
-///////////ALL USERS//////////////////
-/////////////////////////////////////
-
-var users = [];
-var allTicketContent = [];
-var userLoggedIn;
-
-///////////////////////////////////////
 ///////////LOGIN DATA/////////////////
 /////////////////////////////////////
 
 app.post('/login', (req, res) => {
-  const user = req.body.user;
-  const password = req.body.password;
-  const newIdToken = req.cookies[`newIdToken${user}`];
+  try {
+    const user = req.body.user;
+    const newIdTokenGenerate = `7573756172696f${(new Date()).getTime()}`;
+    const hashIdToken = crypto.createHash('sha256').update(newIdTokenGenerate).digest('base64');
+    const newHashIdToken = `${hashIdToken}:${user}`;
+    const password = req.body.password;
+    res.cookie(`newIdToken`, newHashIdToken, { maxAge: 900000, httpOnly: true });
 
-  users.map((userLogin) => {
-    console.log(userLogin);
-    if (userLogin.user === user && userLogin.password === password && userLogin.newIdToken === (newIdToken)) {
-      console.log("entrou");
-      userLoggedIn = user;
-      res.send('/store');
-      console.log(user, password);
-      console.log(userLogin.newIdToken)
-    } else { console.log("Usuário ou senha inválida"); }
-  })
-})
+    fs.readFile('./users.json', function (err, data) {
+      const dataUser = JSON.parse(data);
+      const foundName = dataUser.users.find(username => username.username === user);
+
+      bcrypt.compare(password, foundName.password, function (err, result) {
+        if (result === true) {
+          if (foundName.username === user && newIdTokenGenerate) {
+            console.log("entrou");
+            res.send("/store");
+          } else {
+            res.send("/");
+            console.log("Usuário ou senha inválida");
+          }
+        }
+      });
+    })
+
+  } catch (err) {
+    console.error('Error');
+    console.log("error in post /login");
+  }
+});
 
 ///////////////////////////////////////
 ///////////SIGNIN DATA////////////////
 /////////////////////////////////////
 
 app.post('/signinuser', (req, res) => {
-  const user = req.body.user;
-  const email = req.body.email;
-  const password = req.body.password;
-  const confirmepassword = req.body.confirmepassword;
-  const newIdToken = `7573756172696f${(new Date()).getTime()}:${user}`
+  try {
+    const user = req.body.user;
+    const email = req.body.email;
+    const password = req.body.password;
+    const confirmepassword = req.body.confirmepassword;
 
-  if (password === confirmepassword) {
-    res.cookie(`newIdToken${user}`, newIdToken, { maxAge: 900000, httpOnly: true });
-    let newUser = {
-      'user': user,
-      'email': email,
-      'password': password,
-      'newIdToken': newIdToken
-    }
-    users.push(newUser);
-    res.send('/');
-    console.log(newIdToken);
-    console.log(users);
-  } else { console.log("Senhas diferentes") }
+    if (password === confirmepassword) {
 
-  console.log(user, email, password);
+      bcrypt.hash(password, saltRounds, function (err, hash) {
+        console.log(hash);
+        let newUser = {
+          'username': user,
+          'email': email,
+          'password': hash
+        };
+
+        fs.readFile('./users.json', function (err, data) {
+          const dataUser = JSON.parse(data);
+          const foundName = dataUser.users.find(username => username.username === newUser.username);
+          const foundEmail = dataUser.users.find(email => email.email === newUser.email);
+
+          if (foundName === undefined && foundEmail === undefined) {
+            dataUser.users.push(newUser);
+
+            fs.writeFile("./users.json", JSON.stringify(dataUser), function () {
+              console.log('Done!');
+            })
+
+            res.send("/");
+          } else {
+            console.log("Já existe o login");
+            res.send("");
+          }
+        });
+      });
+
+    } else { console.log("Senhas diferentes"); }
+
+  } catch (err) {
+    console.error('Error');
+    console.log("error in post /signinuser");
+  }
 });
+
+///////////////////////////////////////
+///////////TICKET DATA////////////////
+/////////////////////////////////////
 
 app.post('/ticket', function (req, res) {
-  const ticketContent = req.body.ticketContent;
-  const newIdToken = req.cookies[`newIdToken${userLoggedIn}`];
-  const newIdTokenName = newIdToken.split(":").pop()
-  const ticketContainer = {
-    asking: userLoggedIn,
-    user: newIdTokenName,
-    content: ticketContent
-  };
+  try {
+    const ticketContent = req.body.ticketContent;
+    const newIdToken = req.cookies[`newIdToken`];
+    const ownerTicketName = newIdToken.split(":").pop();
+    console.log(newIdToken);
 
-  allTicketContent.push(ticketContainer);
+    if (!newIdToken) {
+      res.send("/");
+      return true;
+    }
 
-  console.log(allTicketContent);
+    fs.readFile('./users.json', function (err, data) {
+      const dataTicket = JSON.parse(data);
 
-  res.send(allTicketContent);
+      const ticketContainer = {
+        owner: ownerTicketName,
+        content: ticketContent,
+        token: newIdToken
+      };
+
+      dataTicket.tickets.push(ticketContainer);
+      console.log(dataTicket.tickets);
+
+      fs.writeFile("./users.json", JSON.stringify(dataTicket), function () {
+        console.log('Done!');
+      })
+
+      res.send(dataTicket.tickets);
+
+    })
+
+  } catch (err) {
+    console.error('Error');
+    console.log("error in post /ticket");
+    res.send("/");
+  }
+
 })
 
-app.get('/name', function (req, res) {
-  res.send(userLoggedIn);
-});
-
 app.get('/ticket', function (req, res) {
-  res.send(allTicketContent);
+  try {
+    const newIdToken = req.cookies[`newIdToken`];
+    const compareOwnerName = newIdToken.split(":").pop();
+    const keepAllOwnerTicket = [];
+
+    fs.readFile('./users.json', function (err, data) {
+      const dataTicket = JSON.parse(data);
+
+      const foundOwnerTicket = dataTicket.tickets;
+
+      foundOwnerTicket.map(everyTicket => {
+        if (everyTicket.owner === compareOwnerName) {
+          keepAllOwnerTicket.push(everyTicket);
+        }
+      })
+
+      res.send(keepAllOwnerTicket);
+    })
+  } catch (err) {
+    console.error('Error');
+    console.log("error in get /ticket");
+    res.send("/");
+  }
+
 });
 
 app.listen(80);

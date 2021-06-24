@@ -1,8 +1,7 @@
 $(document).ready(() => {
-  var userLoggedin;
   $("#logout-button").on("click", function () {
     window.location.replace("/");
-  })
+  });
 
   $("#ticket-button").on("click", function () {
     $("#textareawrite").css('display', 'flex');
@@ -14,40 +13,28 @@ $(document).ready(() => {
 
   $("#send-ticket").on("click", function () {
     let ticketContent = $("#ticket-content").val();
-    console.log(ticketContent)
     $.ajax({
       url: "/ticket",
       type: "POST",
       data: { ticketContent: ticketContent },
       success: function (data) {
+        if(data.includes("/") === true){
+          window.location.replace(`${data}`)
+          return true;
+        }
         const newData = [data[data.length - 1]];
-        console.log(newData)
-        console.log(data)
-        if (newData.asking === newData.user) {
           newData.map(dataContent => {
             $("#ticket").append(
               ` <div class="write-ticket">
             <span class="content-ticket">${dataContent.content}</span>
-            <span class="content-ticket" id="writer-name">${dataContent.user}</span>
+            <span class="content-ticket" id="writer-name">${dataContent.owner}</span>
           </div>`
-            )
-          })
-        }
+            );
+          });
         $("#ticket-content").val("");
         $("#textareawrite").css('display', 'none');
       }
     });
-  })
-
-  $.ajax({
-    url: "/name",
-    type: "GET",
-    data: {},
-    success: function (data) {
-      userLoggedin = data;
-      console.log(data)
-      $("#personal-text").html(`Deixe um bilhete ${data}`)
-    }
   });
 
   $.ajax({
@@ -55,17 +42,18 @@ $(document).ready(() => {
     type: "GET",
     data: {},
     success: function (data) {
-      console.log(data)
-      console.log(userLoggedin)
+      if(data.includes("/") === true){
+        window.location.replace(`${data}`);
+        return true;
+      }
+      $("#personal-text").html(`Deixe um bilhete ${data[0].owner}`);
       data.map(dataContent => {
-        if (dataContent.asking == userLoggedin) {
           $("#ticket").append(
             ` <div class="write-ticket">
           <span class="content-ticket">${dataContent.content}</span>
-          <span class="content-ticket" id="writer-name">${dataContent.user}</span>
+          <span class="content-ticket" id="writer-name">${dataContent.owner}</span>
         </div>`
           )
-        }
       })
     }
   });
