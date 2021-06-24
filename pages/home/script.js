@@ -7,7 +7,7 @@ $(document).ready(() => {
       $.ajax({
         url: "/login",
         type: "POST",
-        data: { user: user, password: password },
+        data: { user: user, password: password},
         success: function (data) {
           window.location.replace(`${data}`);
         }

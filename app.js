@@ -197,7 +197,7 @@ app.post('/ticket', function (req, res) {
 app.get('/ticket', function (req, res) {
   try {
     const newIdToken = req.cookies[`newIdToken`];
-    const compareOwnerName = newIdToken.split(":").pop();
+    const compareOwnerName = newIdToken.split(":")[1];
     const keepAllOwnerTicket = [];
 
     fs.readFile('./users.json', function (err, data) {
