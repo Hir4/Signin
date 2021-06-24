@@ -80,18 +80,19 @@ app.post('/login', (req, res) => {
     fs.readFile('./users.json', function (err, data) {
       const dataUser = JSON.parse(data);
       const foundName = dataUser.users.find(username => username.username === user);
-
-      bcrypt.compare(password, foundName.password, function (err, result) {
-        if (result === true) {
-          if (foundName.username === user && newIdTokenGenerate) {
-            console.log("entrou");
-            res.send("/store");
-          } else {
-            res.send("/");
-            console.log("Usuário ou senha inválida");
+      if(foundName !== undefined) {
+        bcrypt.compare(password, foundName.password, function (err, result) {
+          if (result === true) {
+            if (foundName.username === user && newIdTokenGenerate) {
+              console.log("entrou");
+              res.send("/store");
+            } else {
+              res.send("/");
+              console.log("Usuário ou senha inválida");
+            }
           }
-        }
-      });
+        });
+      }else{res.send("/");}
     })
 
   } catch (err) {
@@ -157,7 +158,7 @@ app.post('/ticket', function (req, res) {
   try {
     const ticketContent = req.body.ticketContent;
     const newIdToken = req.cookies[`newIdToken`];
-    const ownerTicketName = newIdToken.split(":").pop();
+    const ownerTicketName = newIdToken.split(":")[1];
     console.log(newIdToken);
 
     if (!newIdToken) {
@@ -179,7 +180,7 @@ app.post('/ticket', function (req, res) {
 
       fs.writeFile("./users.json", JSON.stringify(dataTicket), function () {
         console.log('Done!');
-      })
+      });
 
       res.send(dataTicket.tickets);
 
