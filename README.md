@@ -18,8 +18,6 @@ Sign In page and log In page controlling session with cookies and using ajax req
 
 ## :rocket: Technologies ##
 
-As seguintes ferramentas foram usadas na construção do projeto:
-
 - [HTML]
 - [CSS]
 - [Javascript]
