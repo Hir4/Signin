@@ -1,5 +1,5 @@
 <div align="center" id="top"> 
-  <img align="center" width="300px" src="https://img-premium.flaticon.com/png/512/3040/premium/3040770.png?token=exp=1627941575~hmac=9abe7399ef738ea1978d07f449edf722" alt="Login Icon" />
+  <img align="center" width="300px" src="https://pixabay.com/images/id-3938429/" alt="Login Icon" />
 </div>
 
 <h1 align="center">Sign In</h1>
